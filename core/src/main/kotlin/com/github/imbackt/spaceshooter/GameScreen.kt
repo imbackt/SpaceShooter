@@ -1,14 +1,15 @@
 package com.github.imbackt.spaceshooter
 
-import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.utils.Array
+import com.badlogic.gdx.utils.PooledLinkedList
 import com.badlogic.gdx.utils.viewport.FitViewport
 import ktx.app.KtxScreen
 import ktx.graphics.use
+import java.util.*
 
 class GameScreen : KtxScreen {
     private val viewport = FitViewport(WORLD_WIDTH.toFloat(), WORLD_HEIGHT.toFloat())
@@ -24,26 +25,39 @@ class GameScreen : KtxScreen {
     private val backgroundOffsets = floatArrayOf(0f, 0f, 0f, 0f)
     private val backgroundMaxScrollingSpeed = WORLD_HEIGHT / 4f
 
-    private val playerShip = Ship(
-        2f,
-        3,
-        10f,
-        10f,
+    private val playerShip = PlayerShip(
         WORLD_WIDTH / 2f,
         WORLD_HEIGHT / 4f,
-        playerShipTextureRegion,
-        playerShieldTextureRegion
-    )
-    private val enemyShip = Ship(
+        10f,
+        10f,
         2f,
-        1,
-        10f,
-        10f,
+        3,
+        0.4f,
+        4f,
+        45f,
+        0.5f,
+        playerShipTextureRegion,
+        playerShieldTextureRegion,
+        playerLaserTextureRegion
+    )
+    private val enemyShip = EnemyShip(
         WORLD_WIDTH / 2f,
         WORLD_HEIGHT * 3f / 4f,
+        10f,
+        10f,
+        2f,
+        1,
+        0.3f,
+        5f,
+        50f,
+        0.8f,
         enemyShipTextureRegion,
-        enemyShieldTextureRegion
+        enemyShieldTextureRegion,
+        enemyLaserTextureRegion
     )
+
+    private val playerLaserList = LinkedList<Laser>()
+    private val enemyLaserList = LinkedList<Laser>()
 
     init {
         backgrounds.addAll(
@@ -60,11 +74,47 @@ class GameScreen : KtxScreen {
 
     override fun render(delta: Float) {
         batch.use(viewport.camera.combined) {
+            playerShip.update(delta)
+            enemyShip.update(delta)
+
             renderBackground(delta)
 
             enemyShip.draw(batch)
-
             playerShip.draw(batch)
+
+            if (playerShip.canFireLaser()) {
+                val lasers = playerShip.fireLasers()
+                lasers.forEach {
+                    playerLaserList.add(it)
+                }
+            }
+
+            if (enemyShip.canFireLaser()) {
+                val lasers = enemyShip.fireLasers()
+                lasers.forEach {
+                    enemyLaserList.add(it)
+                }
+            }
+
+            var iterator = playerLaserList.listIterator()
+            while (iterator.hasNext()) {
+                val laser = iterator.next()
+                laser.draw(batch)
+                laser.yPosition += laser.movementSpeed * delta
+                if (laser.yPosition > WORLD_HEIGHT) {
+                    iterator.remove()
+                }
+            }
+
+            iterator = enemyLaserList.listIterator()
+            while (iterator.hasNext()) {
+                val laser = iterator.next()
+                laser.draw(batch)
+                laser.yPosition -= laser.movementSpeed * delta
+                if ((laser.yPosition +laser.height) < 0) {
+                    iterator.remove()
+                }
+            }
         }
     }
 
